@@ -47,7 +47,7 @@ void parcurgere_director(char *nume_director, int snapshot, int nivel)
         exit(-1);
     }
 
-    while(((intrare = readdir( dir)) != NULL)) //parcurgem directorul
+    while(((intrare = readdir(dir)) != NULL)) //parcurgem directorul
     {
         if(strcmp (intrare->d_name, ".") ==0 || strcmp (intrare->d_name, "..")==0)
             continue;
@@ -58,7 +58,7 @@ void parcurgere_director(char *nume_director, int snapshot, int nivel)
         {                               //daca e <0  inseamna nu avem atribute
         
             //folosim lstat->daca avem leg simbolica, stat nu afiseaza atributele din legatura, le va afisa din fisier
-            perror("eroare la lstat");
+            perror("Eroare la lstat\n");
             exit(1);
         }
 
@@ -66,7 +66,7 @@ void parcurgere_director(char *nume_director, int snapshot, int nivel)
         {
             sprintf(mesaj, "    %s ---> DIRECTOR ---> Dimeniune %d bytes ---> Last access time %s", cale, intrare->d_reclen, ctime(&info.st_atime));
             write(snapshot, mesaj, strlen(mesaj));
-            write(snapshot,"\n",strlen("\n"));
+            write(snapshot, "\n", strlen("\n"));
             parcurgere_director(cale, snapshot, nivel + 1);
         }
         else
@@ -79,7 +79,7 @@ void parcurgere_director(char *nume_director, int snapshot, int nivel)
                 cale_link[n]='\0';
                 sprintf(mesaj, "%s  %s -> %s\n", spatii, cale, cale_link);
                 write(snapshot, mesaj, strlen(mesaj));
-                write(snapshot,"\n",strlen("\n"));
+                write(snapshot, "\n", strlen("\n"));
             }
             else
             {
@@ -88,7 +88,7 @@ void parcurgere_director(char *nume_director, int snapshot, int nivel)
 
                 /*if(info.st_mode & S_IXUSR || info.st_mode & S_IXGRP || info.st_mode & S_IXOTH)  //verificam daca avem drepturi de executie
                     write(snapshot,"*",strlen("*"));*/
-                write(snapshot,"\n",strlen("\n"));
+                write(snapshot, "\n", strlen("\n"));
 
             }
      
@@ -118,30 +118,24 @@ int main( int argc, char **argv )
 {
     DIR *d;
     int ok;
-    DIR *output;
+    //DIR *output;
 
-    if( argc < 2 )    //verificam daca avem cel putin un director ca si argument
+    if((argc < 3) || (argc > 10))
     {
-        perror("Numar invalid de argumente\n");
-        exit(-1);
-    }
-
-    if(argc > 10)
-    {
-        perror("argumente multe\n");
+        perror("Numar de argumente invalid\n");
         exit(-1);
     }
     else
     {
         ok = 0;
-        for(int i = 3; i < argc-1; i++)  //verificam daca sunt distincte
+        for(int i = 3; i < argc - 1; i++)  //verificam daca sunt distincte
         {
             for(int j = i+1; j < argc; j++)
             {
                 if((strcmp(argv[i], argv[j])) == 0)  //daca avem arg egale ok va deveni 1
                 {
                     ok = 1;
-                    perror("argumente egale\n");
+                    perror("Argumente egale in linia de comanda\n");
                     exit(-1);
                 }
             }
@@ -149,39 +143,54 @@ int main( int argc, char **argv )
         }
     }
 
-        //aici ma gandeam ca trebuie sa verificam si daca directorul are numele SNAPSHOT-uri(in cazul meu), ca asa ii putem da oricare director si atunci va functiona
+        //aici ma gandeam ca trebuie sa verificam si daca directorul are numele SNAPSHOT-uri(in cazul meu), ca asa ii putem da oricare director si va functiona oricum
      if((ok == 0) && ((strcmp(argv[1], "-o")) == 0) && ((strcmp(argv[2], "SNAPSHOT-uri")) == 0))  //daca sunt arg distincte, atunci nu se intra in if-ul de mai sus si ok nu devine 1
     {                                           //verificam si daca argv[1] e -o
-        if((output = opendir(argv[2])) == NULL) //verificam daca argv[2] e un director
+        if((d = opendir(argv[2])) == NULL) //verificam daca argv[2] e un director
         {
-            perror("eroareee\n");
+            perror("Argumentul 2 din linia de comanda nu este director\n");
             exit(-1);
         } 
+
         for(int i = 3; i < argc; i++)
         {
             if((d = opendir( argv[i] )) == NULL) //verificam daca argumentele din linia de comanda sunt directoare
             {
-                perror("arg nu e director\n");
+                continue;
             }
             else
             {
       //!!!!!          aici trebuie sa imi deschid snapchot-urile directoarelor in SNAPCHOT-uri
 
+                if((chdir("SNAPSHOT-uri")) == -1)
+                {
+                    perror("Nu exista directorul SNAPSHOT-uri\n");
+                    exit(-1);
+                }
+
                 int f;
+
                 if((f = open(numeFisier(argv[i]), O_CREAT | O_RDWR, S_IWUSR | S_IRUSR | S_IXUSR)) == -1)  //am folosit O_CREAT pentru a-l crea si O_RDWR pentru a putea scrie/citi in/din el, iar S_IWUSR si celelate trebuie folosite, deoarece cu O_CREAT trebuie sa adaugam si param mode in functia open
                 {
                     perror("eroare la deschideree\n");
                     exit(-1);
                 }
 
+                if((chdir("..")) == -1)
+                {
+                    exit(-1);
+                }
+
                 parcurgere_director(argv[i], f, 0);
+
                 close(f);
             }
         }
     }
     else
     {
-        perror("Exista argumente egale sau nu gasim -o sau nu avem dir SNAPCHOT-uri\n");
+        perror("Probleme la primele 3 argumente din linia de comanda\n");
+        exit(-1);
     }
 
     return 0;
