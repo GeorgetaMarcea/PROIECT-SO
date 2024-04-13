@@ -35,17 +35,6 @@ void parcurgere_director(char *nume_director, int snapshot, int nivel)
 
     sprintf(mesaj, "%sDIRECTOR: %s\n", spatii, nume_director);
     write(snapshot, mesaj, strlen(mesaj));
-    
-    if(((intrare = readdir(dir)) != NULL)) //daca nu e e gol afisam info despre el
-    {
-        sprintf(mesaj, "%s ---> Dimeniune %d bytes ---> Last access time %s", cale, intrare->d_reclen, ctime(&info.st_atime)); //afisam despre dir in care suntem
-        write(snapshot, mesaj, strlen(mesaj));
-    }
-    else
-    {
-        perror("Eroare la readdir din functia 'parcurgere_director'\n");
-        exit(-1);
-    }
 
     while(((intrare = readdir(dir)) != NULL)) //parcurgem directorul
     {
@@ -85,9 +74,6 @@ void parcurgere_director(char *nume_director, int snapshot, int nivel)
             {
                 sprintf(mesaj, "    %s ---> REGULAR FILE ---> Dimeniune %d bytes ---> Last access time %s", cale, intrare->d_reclen, ctime(&info.st_atime));
                 write(snapshot, mesaj, strlen(mesaj));
-
-                /*if(info.st_mode & S_IXUSR || info.st_mode & S_IXGRP || info.st_mode & S_IXOTH)  //verificam daca avem drepturi de executie
-                    write(snapshot,"*",strlen("*"));*/
                 write(snapshot, "\n", strlen("\n"));
 
             }
@@ -97,11 +83,6 @@ void parcurgere_director(char *nume_director, int snapshot, int nivel)
 
        closedir(dir);
 }
-
-        //S_IXUSR - execute/search permission, owner
-        //S_IXGRP - execute/search permission, group
-        //S_IXOTH - execute/search permission, others
-
 
 //Functia aceasta ne denumeste fiecare fisier sub forma: "snapshot_[numele_directorului].txt"
 char* numeFisier(char *director)
@@ -118,7 +99,6 @@ int main( int argc, char **argv )
 {
     DIR *d;
     int ok;
-    //DIR *output;
 
     if((argc < 3) || (argc > 10))
     {
@@ -160,7 +140,6 @@ int main( int argc, char **argv )
             }
             else
             {
-      //!!!!!          aici trebuie sa imi deschid snapchot-urile directoarelor in SNAPCHOT-uri
 
                 if((chdir("SNAPSHOT-uri")) == -1)
                 {
