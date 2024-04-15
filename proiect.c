@@ -91,11 +91,11 @@ int main( int argc, char **argv )
     }else{
         ok = 0;
         for(int i = 3; i < argc - 1; i++){
-            for(int j = i+1; j < argc; j++){ //Tu verifici de 3 ori daca sunt coincidente ? De ce ?
+            for(int j = i+1; j < argc; j++){ 
                 if((strcmp(argv[i], argv[j])) == 0){
                     ok = 1;
-                    perror("Argumente egale in linia de comanda\n"); // Daca se repeta directorul asta nu e eroar ))
-                    exit(-1);// Poti sa notifici, dar sigur nu e nevoie sa opresti aplicatia
+                    perror("Argumente egale in linia de comanda\n"); 
+                    exit(-1);
                 }
             }
         }
