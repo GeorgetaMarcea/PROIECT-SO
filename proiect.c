@@ -16,6 +16,7 @@
 void parcurgere_director(char *nume_director, int snapshot, int nivel){
     DIR *dir;
     struct dirent *intrare;
+    struct stat st;
     struct stat info;
     char cale[PATH_MAX];   
     char cale_link[PATH_MAX + 1];  //calea-calea catre fis curent
@@ -46,14 +47,19 @@ void parcurgere_director(char *nume_director, int snapshot, int nivel){
             exit(1);
         }
 
+        if((stat(cale,&st)) < 0){
+            perror("Eroare la stat\n");
+            exit(-1);
+        }
+
         if(S_ISDIR(info.st_mode)){
-            sprintf(mesaj, "    %s ---> DIRECTOR ---> Dimeniune %d bytes ---> Last access time %s", cale, intrare->d_reclen, ctime(&info.st_atime));
+            sprintf(mesaj, "    %s ---> DIRECTOR ---> Dimeniune %ld bytes ---> Last access time %s", cale, st.st_size, ctime(&info.st_atime));
             write(snapshot, mesaj, strlen(mesaj));
             write(snapshot, "\n", strlen("\n"));
             parcurgere_director(cale, snapshot, nivel + 1);
         }else{
             if(S_ISLNK(info.st_mode)){
-                sprintf(mesaj, "    %s ---> LINK SIMBOLIC ---> Dimeniune %d bytes ---> Last access time %s", cale, intrare->d_reclen, ctime(&info.st_atime));
+                sprintf(mesaj, "    %s ---> LINK SIMBOLIC ---> Dimeniune %ld bytes ---> Last access time %s", cale, st.st_size, ctime(&info.st_atime));
                 write(snapshot, mesaj, strlen(mesaj));
                 n=readlink(cale, cale_link, sizeof(cale_link));  //citim continutul leg simbolice
                 cale_link[n]='\0';
@@ -61,7 +67,7 @@ void parcurgere_director(char *nume_director, int snapshot, int nivel){
                 write(snapshot, mesaj, strlen(mesaj));
                 write(snapshot, "\n", strlen("\n"));
             }else{
-                sprintf(mesaj, "    %s ---> REGULAR FILE ---> Dimeniune %d bytes ---> Last access time %s", cale, intrare->d_reclen, ctime(&info.st_atime));
+                sprintf(mesaj, "    %s ---> REGULAR FILE ---> Dimeniune %ld bytes ---> Last access time %s", cale, st.st_size, ctime(&info.st_atime));
                 write(snapshot, mesaj, strlen(mesaj));
                 write(snapshot, "\n", strlen("\n"));
             }
@@ -138,6 +144,8 @@ int main( int argc, char **argv ){
                     exit(-1);
                 }
 
+
+
                 parcurgere_director(argv[i], snapshot_director, 0);
 
                 close(snapshot_director);
@@ -149,6 +157,7 @@ int main( int argc, char **argv ){
         perror("Probleme la primele 3 argumente din linia de comanda\n");
         exit(-1);
     }
+
 
     return 0;
 }
