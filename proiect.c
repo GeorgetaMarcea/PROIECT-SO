@@ -9,6 +9,7 @@
 #include <limits.h>
 #include <time.h>
 #include <fcntl.h>
+#include <sys/wait.h>
 #include <libgen.h>  //pt basename
 
 #define PATH_MAX 4096
@@ -134,6 +135,7 @@ int main( int argc, char **argv ){
     int ok;  //ok=1 -> arg egale, ok=0 -> arg diferite 
     char *nume_output;
     nume_output = argv[2];
+    int count=1;
 
     if((argc < 3) || (argc > 10)){
         perror("Numar de argumente invalid\n");
@@ -188,6 +190,28 @@ int main( int argc, char **argv ){
 
                 close(snapshot_director);
                 close(snapshot_nou);
+
+                pid_t pid;
+                pid=fork();
+
+                if(pid < 0){
+                    perror("Eroare la fork\n");
+                    exit(-1);
+                }else{
+                    if(pid == 0){
+                        printf("Snapshot for Directory %s created successfully\n",argv[i]);
+                        exit(0);
+                    }
+                    else{
+                            int status;
+                            wait(&status);
+                            if(WIFEXITED(status)){
+                                printf("Child process %d terminated with PID %d and exit code %d.\n", count, pid, WEXITSTATUS(status));
+                            count++;
+                            printf("\n");
+                            }
+                    }
+                }
             }
         }
     }
@@ -196,8 +220,6 @@ int main( int argc, char **argv ){
         perror("Probleme la primele 3 argumente din linia de comanda\n");
         exit(-1);
     }
-
-
 
     return 0;
 }
