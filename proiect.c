@@ -178,19 +178,6 @@ int main( int argc, char **argv ){
                     exit(-1);
                 }
 
-                parcurgere_director(argv[i], snapshot_director, 0);
-
-                int snapshot_nou;
-                if((snapshot_nou = open("/tmp/new_snapshot.txt", O_CREAT | O_RDWR, S_IWUSR | S_IRUSR)) == -1 ){
-                    perror("Eroare la deschiderea snapshot-ului nou\n");
-                    exit(-1);
-                }
-
-                comparare_actualizare(snapshot_director, snapshot_nou);
-
-                close(snapshot_director);
-                close(snapshot_nou);
-
                 pid_t pid;
                 pid=fork();
 
@@ -199,6 +186,7 @@ int main( int argc, char **argv ){
                     exit(-1);
                 }else{
                     if(pid == 0){
+                        parcurgere_director(argv[i], snapshot_director, 0);
                         printf("Snapshot for Directory %s created successfully\n",argv[i]);
                         exit(0);
                     }
@@ -212,6 +200,18 @@ int main( int argc, char **argv ){
                             }
                     }
                 }
+
+                int snapshot_nou;
+                if((snapshot_nou = open("/tmp/new_snapshot.txt", O_CREAT | O_RDWR, S_IWUSR | S_IRUSR)) == -1 ){
+                    perror("Eroare la deschiderea snapshot-ului nou\n");
+                    exit(-1);
+                }
+
+                comparare_actualizare(snapshot_director, snapshot_nou);
+
+                close(snapshot_director);
+                close(snapshot_nou);
+
             }
         }
     }
