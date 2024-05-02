@@ -24,7 +24,7 @@ void parcurgere_director(char *nume_director, int snapshot, int nivel){
     int n;
     char mesaj[100000];
 
-    memset(spatii, ' ', 2 * nivel);
+    memset(spatii, ' ', 2 * nivel);  //pune spatii in primele 2*nivel caractere in sirul: spatii
     spatii[2 * nivel] = '\0';
     
     if(!(dir = opendir(nume_director))){
@@ -35,7 +35,7 @@ void parcurgere_director(char *nume_director, int snapshot, int nivel){
     snprintf(mesaj, sizeof(mesaj), "%sDIRECTOR: %s\n", spatii, nume_director);
     write(snapshot, mesaj, strlen(mesaj));
 
-    if(stat(nume_director, &st) < 0){
+    if(stat(nume_director, &st) < 0){  // nume_director-cale absoluta catre programul executabil al fisierului, iar st-parametru de iesire, reprezinta un pointer spre o zona de memorie ce contine o variabila de tip struct stat
         perror("Eroare la stat\n");
         exit(-1);
     }
@@ -99,6 +99,7 @@ void creare_director(const char *nume){
 
         if(output != 0){    //verificam daca s a creat cu succes
             perror("Eroare la crearea directorului\n");
+            exit(-1);
         }
     }
 
@@ -127,6 +128,30 @@ void comparare_actualizare(int vechi, int nou){
             exit(-1);
         }
     }
+}
+
+int snapshot_dir; // mi am declarat acest snaphot_dir global, deoarece avem nevoie de el atat in functia de mai jos, cat si in main 
+
+//aici mi am facut o functie care ma ajuta sa imi creez snapshot-urile pentru fiecare argument din linia de comanda in directorul de output (argv[2])
+//initial am avut acest cod in main, dar am zis ca mai bine fac o functie ca sa fie mai usor de inteles main-ul
+
+void creare_snapshot_uri_director_output(char *cale_fisier_output, char *director_linie_comanda){
+
+                if((chdir(cale_fisier_output)) == -1){
+    //!!!   aici mi am schimbat calea in directorul dat ca parametru
+    //      de exemplu: eu am fost in PROIECT-SO si acum sunt in nume_output (SNAPSHOT-uri in cazul meu) 
+                    perror("Nu exista directorul\n");
+                    exit(-1);
+                }
+                if((snapshot_dir = open(numeFisier(director_linie_comanda), O_CREAT | O_RDWR, S_IWUSR | S_IRUSR | S_IXUSR)) == -1){
+                    perror("Eroare la deschideree\n");
+                    exit(-1);
+                }
+
+                if((chdir("..")) == -1){
+    //!!!   aici revin in directorul meu PROIECT-SO
+                    exit(-1);
+                }
 }
 
 int main( int argc, char **argv ){
@@ -160,24 +185,9 @@ int main( int argc, char **argv ){
             if((d = opendir( argv[i] )) == NULL)
                 continue;
             else{
-                if((chdir(nume_output)) == -1){ //Dar unde se afla acest director ? De regula variabele statice, se extrag intr-un fisier aparte, si din acesta se extrag date )
-    //!!!   aici mi am schimbat calea in directorul dat ca parametru
-    //      de exemplu: eu am fost in PROIECT-SO si acum sunt in nume_output (SNAPSHOT-uri in cazul meu) 
-                    perror("Nu exista directorul\n");
-                    exit(-1);
-                }
 
-                int snapshot_director; 
-                if((snapshot_director = open(numeFisier(argv[i]), O_CREAT | O_RDWR, S_IWUSR | S_IRUSR | S_IXUSR)) == -1){
-                    perror("Eroare la deschideree\n");
-                    exit(-1);
-                }
-
-                if((chdir("..")) == -1){ //Aici nu am inteles ce se intampla !cd
-    //!!!   aici revin in directorul meu PROIECT-SO
-                    exit(-1);
-                }
-
+                creare_snapshot_uri_director_output(nume_output,argv[i]); //am creat snapshot-urile pentru fiecare director din linia de comanda
+                
                 pid_t pid;
                 pid=fork();
 
@@ -186,7 +196,7 @@ int main( int argc, char **argv ){
                     exit(-1);
                 }else{
                     if(pid == 0){
-                        parcurgere_director(argv[i], snapshot_director, 0);
+                        parcurgere_director(argv[i], snapshot_dir, 0);
                         printf("Snapshot for Directory %s created successfully\n",argv[i]);
                         exit(0);
                     }
@@ -207,9 +217,9 @@ int main( int argc, char **argv ){
                     exit(-1);
                 }
 
-                comparare_actualizare(snapshot_director, snapshot_nou);
+                comparare_actualizare(snapshot_dir, snapshot_nou);
 
-                close(snapshot_director);
+                close(snapshot_dir);
                 close(snapshot_nou);
 
             }
