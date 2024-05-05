@@ -14,6 +14,21 @@
 
 #define PATH_MAX 4096
 
+int verificare_drepturi(const char *filename, struct stat st) {
+    // Verificăm drepturile pentru proprietar
+    if ((st.st_mode & S_IRUSR) || (st.st_mode & S_IWUSR) || (st.st_mode & S_IXUSR)) {
+        // Verificăm drepturile pentru grup
+        if ((st.st_mode & S_IRGRP) || (st.st_mode & S_IWGRP) || (st.st_mode & S_IXGRP)) {
+            // Verificăm drepturile pentru alți utilizatori
+            if ((st.st_mode & S_IROTH) || (st.st_mode & S_IWOTH) || (st.st_mode & S_IXOTH)) {
+                return 0;  // Toate drepturile sunt prezente
+            }
+        }
+    }
+    return 1;  // Nu toate drepturile sunt prezente
+}
+
+
 void parcurgere_director(char *nume_director, int snapshot, int nivel){
     DIR *dir;
     struct dirent *intrare;
@@ -23,6 +38,8 @@ void parcurgere_director(char *nume_director, int snapshot, int nivel){
     char spatii[PATH_MAX];
     int n;
     char mesaj[100000];
+    int drepturi;
+
 
     memset(spatii, ' ', 2 * nivel);  //pune spatii in primele 2*nivel caractere in sirul: spatii
     spatii[2 * nivel] = '\0';
@@ -43,7 +60,7 @@ void parcurgere_director(char *nume_director, int snapshot, int nivel){
         //afisam data ultimei modificari a directorului
     sprintf(mesaj, "        ---> Last modification time: %s\n", ctime(&st.st_mtime));
     write(snapshot, mesaj, strlen(mesaj));
-
+    
     while(((intrare = readdir(dir)) != NULL)){
         if(strcmp (intrare->d_name, ".") ==0 || strcmp (intrare->d_name, "..")==0)
             continue;
@@ -67,10 +84,17 @@ void parcurgere_director(char *nume_director, int snapshot, int nivel){
                 sprintf(mesaj, "%s  %s -> %s\n", spatii, cale, cale_link);
                 write(snapshot, mesaj, strlen(mesaj));
                 write(snapshot, "\n", strlen("\n"));
+                if((drepturi = verificare_drepturi(cale_link,st)) == 1){
+                    printf("NU ARE DREPTURI\n");
+                }
+
             }else{
                 sprintf(mesaj, "    %s ---> REGULAR FILE ---> I-node %ld ---> Dimeniune %ld bytes ---> Last access time %s", cale, st.st_ino, st.st_size, ctime(&st.st_atime));
                 write(snapshot, mesaj, strlen(mesaj));
                 write(snapshot, "\n", strlen("\n"));
+                if((drepturi = verificare_drepturi(cale,st)) == 1){
+                    printf("NU ARE DREPTURI\n");
+                }
             }
         }
     }
@@ -115,18 +139,22 @@ void comparare_actualizare(int vechi, int nou){
         exit(-1);
     }
 
-    int bytes_nou = read(vechi, buff_nou, sizeof(buff_nou));
+    lseek(nou, 0, SEEK_SET);
+    int bytes_nou = read(nou, buff_nou, sizeof(buff_nou));
     if(bytes_nou == -1){
         perror("Eroare la citirea snapshot-ului nou\n");
         exit(-1);
     }
 
     if((bytes_vechi != bytes_nou) || (memcmp(buff_vechi, buff_nou, bytes_vechi) !=0)){
+        perror("Snapshot actualizat\n");
         lseek(vechi, 0 ,SEEK_SET);
         if(write(vechi, buff_nou, bytes_nou) == -1){
             perror("Eroare la actualizare snapshot-ului\n");
             exit(-1);
         }
+    }else{
+        perror("Snapshot identic\n");
     }
 }
 
@@ -197,6 +225,17 @@ int main( int argc, char **argv ){
                 }else{
                     if(pid == 0){
                         parcurgere_director(argv[i], snapshot_dir, 0);
+
+                        int snapshot_nou;
+                        if((snapshot_nou = open("/tmp/new_snapshot.txt", O_CREAT | O_RDWR, S_IWUSR | S_IRUSR)) == -1 ){
+                            perror("Eroare la deschiderea snapshot-ului nou\n");
+                            exit(-1);
+                        }
+
+                        comparare_actualizare(snapshot_dir, snapshot_nou);
+                        close(snapshot_nou);
+
+                        printf("\n");
                         printf("Snapshot for Directory %s created successfully\n",argv[i]);
                         exit(0);
                     }
@@ -211,16 +250,7 @@ int main( int argc, char **argv ){
                     }
                 }
 
-                int snapshot_nou;
-                if((snapshot_nou = open("/tmp/new_snapshot.txt", O_CREAT | O_RDWR, S_IWUSR | S_IRUSR)) == -1 ){
-                    perror("Eroare la deschiderea snapshot-ului nou\n");
-                    exit(-1);
-                }
-
-                comparare_actualizare(snapshot_dir, snapshot_nou);
-
                 close(snapshot_dir);
-                close(snapshot_nou);
 
             }
         }
