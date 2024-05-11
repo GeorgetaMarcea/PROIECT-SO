@@ -28,27 +28,47 @@ int verificare_drepturi(const char *filename, struct stat st) {
     return 1;  // Nu toate drepturile sunt prezente
 }
 
-void creare_proces_script(const char *nume_fisier, struct stat st){
+void creare_proces_script(char *nume_fisier, struct stat st){
     int drepturi;
     if((drepturi = verificare_drepturi(nume_fisier, st)) == 1){
         pid_t pid = fork();
-            if(pid < 0){
-                perror("Eroare la fork (script)\n");
-                exit(-1);
-            }
+        int pfd[2];
+        if(pipe(pfd)<0){
+            perror("'Eroare la crearea pipe-ului\n");
+            exit(-1);
+        }
+        
+        if(pid < 0){ 
+            perror("Eroare la fork (script)\n");
+            exit(-1);
+        }
 
-            if(pid == 0){
-                execl("/bin/bash", "sh", "verify_for_malicious.sh", nume_fisier, "izolated_space_dir", NULL);
-                perror("Eroareee la rularea scriptului de analiză sintactică\n");
-            }else{
-                int status;
-                wait(&status);
-                if(WIFEXITED(status)){
-                    printf("Analiza sintactică a fost efectuată cu succes.\n");                            
-                    printf("\n");
-                }
-            }
-    }
+        if(pid == 0){ //procesul fiu
+            close(pfd[0]); //am inchis capatul de citire, ramane cel de scriere
+            dup2(pfd[1], STDOUT_FILENO); //STDOUT_FILENO este folosit pentru a direcționa ieșirea standard a unui program către un fișier, alt program sau un dispozitiv specificat.
+            close(pfd[1]);
+            execl("/bin/bash", "sh", "verify_for_malicious.sh", nume_fisier, "izolated_space_dir", NULL);
+            perror("Eroareee la rularea scriptului de analiză sintactică\n");
+        }
+        //proces parinte
+        int status;
+        close(pfd[1]); //inchidem capatul de scriere, lasam pentru citire
+        char buff[PATH_MAX];
+        char path[100000];
+        memset(buff, 0, sizeof(buff)); //setam toti octetii din buff la 0
+        read(pfd[0], buff, sizeof(buff)); //citim rez din pipe-ul de la fiu
+        if(strcmp(buff, "SAFE") !=0){ //fisierul este periculos si in mutam
+            sprintf(path, "izolated_space_dir/%s", basename(nume_fisier)); //am folosit basename ca sa am doar numele fisierului, daca foloseam nume_fisier aveam de ecd xemplu /dir/b.c
+            rename(nume_fisier, path);
+        }
+
+        wait(&status);
+        if(WIFEXITED(status)){
+                printf("Analiza sintactică a fost efectuată cu succes.\n");          
+                printf("\n");
+        }
+        close(pfd[0]); 
+    }    
 }
 
 void parcurgere_director(char *nume_director, int snapshot, int nivel){
