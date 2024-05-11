@@ -17,23 +17,27 @@ verifica_fisier_periculos() {
     numar_cuvinte=$(wc -w < "$nume_fisier")
     numar_caractere=$(wc -m < "$nume_fisier")
 
-    cuvinte_periculoase=("corrupted" "dangerous" "risk" "attack" "malware" "malicious")
-
     count=0
-    for cuvant in "${cuvinte_periculoase[@]}" 
-    do
-        if grep -q -i "$cuvant" "$nume_fisier"; then
-            count=1
-            break
-        fi
-    done
+    #if ["$numar_linii" -lt 3] && ["$numar_cuvinte" -gt 1000] && ["$numar_caractere" -gt 2000]; then
 
-    #LC_ALL este o variabilă de mediu utilizată pentru controlul localizării în Linux.
-    #[^[:print:]] cautam caractere care nu sunt imprimabile, adica non-ascii
+        cuvinte_periculoase=("corrupted" "dangerous" "risk" "attack" "malware" "malicious")
+
+        for cuvant in "${cuvinte_periculoase[@]}" 
+        do
+            if grep -q -i "$cuvant" "$nume_fisier"; then
+                count=1
+                break
+            fi
+        done
     
-    if LC_ALL=C grep -q '[^[:print:]]' "$nume_fisier"; then
-        count=1
-    fi
+
+        #LC_ALL este o variabilă de mediu utilizată pentru controlul localizării în Linux.
+        #[^[:print:]] cautam caractere care nu sunt imprimabile, adica non-ascii
+    
+        if LC_ALL=C grep -q '[^[:print:]]' "$nume_fisier"; then
+            count=1
+        fi
+    #fi
 
     echo "$count"
 }
@@ -42,18 +46,18 @@ verifica_fisier_periculos() {
 este_periculos=$(verifica_fisier_periculos "$nume_fisier")
 
 if [ "$este_periculos" -eq 1 ]; then
-    echo "Fișierul $nume_fisier este periculos și va fi izolat."
+    echo "$nume_fisier"
 
     # Verificăm dacă directorul există și creăm directorul dacă nu există
-    if [ ! -d "$director_izolare" ]; then
-        mkdir "$director_izolare"
-        echo "Directorul $director_izolare a fost creat."
-    fi
+    #if [ ! -d "$director_izolare" ]; then
+    #    mkdir "$director_izolare"
+    #    echo "Directorul $director_izolare a fost creat."
+    #fi
 
     # Mutăm fișierul periculos în directorul de izolare
-    mv "$nume_fisier" "$director_izolare"
+    #mv "$nume_fisier" "$director_izolare"
 
-    echo "Fișierul $nume_fisier a fost izolat în directorul $director_izolare."
+    #echo "Fișierul $nume_fisier a fost izolat în directorul $director_izolare."
 else
-    echo "Fișierul $nume_fisier este sigur."
+    echo "Fisier: $nume_fisier -> SAFE"
 fi
