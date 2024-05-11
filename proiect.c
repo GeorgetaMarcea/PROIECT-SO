@@ -28,6 +28,28 @@ int verificare_drepturi(const char *filename, struct stat st) {
     return 1;  // Nu toate drepturile sunt prezente
 }
 
+void creare_proces_script(const char *nume_fisier, struct stat st){
+    int drepturi;
+    if((drepturi = verificare_drepturi(nume_fisier, st)) == 1){
+        pid_t pid = fork();
+            if(pid < 0){
+                perror("Eroare la fork (script)\n");
+                exit(-1);
+            }
+
+            if(pid == 0){
+                execl("/bin/bash", "sh", "verify_for_malicious.sh", nume_fisier, "izolated_space_dir", NULL);
+                perror("Eroareee la rularea scriptului de analiză sintactică\n");
+            }else{
+                int status;
+                wait(&status);
+                if(WIFEXITED(status)){
+                    printf("Analiza sintactică a fost efectuată cu succes.\n");                            
+                    printf("\n");
+                }
+            }
+    }
+}
 
 void parcurgere_director(char *nume_director, int snapshot, int nivel){
     DIR *dir;
@@ -38,8 +60,6 @@ void parcurgere_director(char *nume_director, int snapshot, int nivel){
     char spatii[PATH_MAX];
     int n;
     char mesaj[100000];
-    int drepturi;
-
 
     memset(spatii, ' ', 2 * nivel);  //pune spatii in primele 2*nivel caractere in sirul: spatii
     spatii[2 * nivel] = '\0';
@@ -84,17 +104,12 @@ void parcurgere_director(char *nume_director, int snapshot, int nivel){
                 sprintf(mesaj, "%s  %s -> %s\n", spatii, cale, cale_link);
                 write(snapshot, mesaj, strlen(mesaj));
                 write(snapshot, "\n", strlen("\n"));
-                if((drepturi = verificare_drepturi(cale_link,st)) == 1){
-                    printf("NU ARE DREPTURI\n");
-                }
-
+                creare_proces_script(cale_link, st);
             }else{
                 sprintf(mesaj, "    %s ---> REGULAR FILE ---> I-node %ld ---> Dimeniune %ld bytes ---> Last access time %s", cale, st.st_ino, st.st_size, ctime(&st.st_atime));
                 write(snapshot, mesaj, strlen(mesaj));
                 write(snapshot, "\n", strlen("\n"));
-                if((drepturi = verificare_drepturi(cale,st)) == 1){
-                    printf("NU ARE DREPTURI\n");
-                }
+                creare_proces_script(cale, st);
             }
         }
     }
@@ -190,7 +205,7 @@ int main( int argc, char **argv ){
     nume_output = argv[2];
     int count=1;
 
-    if((argc < 3) || (argc > 10)){
+    if((argc < 5) || (argc > 10)){
         perror("Numar de argumente invalid\n");
         exit(-1);
     }else{
@@ -207,9 +222,10 @@ int main( int argc, char **argv ){
     }
 
     creare_director(nume_output); //creeam directorul cu SNAPSHOT-uri
+    creare_director("izolated_space_dir");
 
-    if((ok == 0) && ((strcmp(argv[1], "-o")) == 0)){
-        for(int i = 3; i < argc; i++){
+    if((ok == 0) && ((strcmp(argv[1], "-o")) == 0) && ((strcmp(argv[3],"-s")) ==0)){
+        for(int i = 5; i < argc; i++){
             if((d = opendir( argv[i] )) == NULL)
                 continue;
             else{
